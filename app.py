@@ -334,7 +334,7 @@ def generate_csv_report(data, report_type):
     except Exception as e:
         return None, f"CSV generation error: {str(e)}"
 
-# Complete HTML template with ALL MOE fields
+# Complete HTML template
 HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -445,13 +445,13 @@ HTML_TEMPLATE = '''
 
     <div id="mainApp" class="hidden">
         <div class="header">
-            <h1>🏢 Madares Business - Complete Asset Management System (All 58 MOE Fields)</h1>
+            <h1>🏢 Madares Business - Asset Management System</h1>
         </div>
 
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showTab('dashboard')">📊 Dashboard</button>
             <button class="nav-tab" onclick="showTab('assets')">🏢 Assets</button>
-            <button class="nav-tab" onclick="showTab('add-asset')">➕ Add Asset (All MOE Fields)</button>
+            <button class="nav-tab" onclick="showTab('add-asset')">➕ Add Asset</button>
             <button class="nav-tab" onclick="showTab('workflows')">🔄 Workflows</button>
             <button class="nav-tab" onclick="showTab('users')">👥 Users</button>
             <button class="nav-tab" onclick="showTab('reports')">📊 Reports</button>
@@ -529,17 +529,17 @@ HTML_TEMPLATE = '''
                 </div>
             </div>
 
-            <!-- Complete MOE Add Asset Form -->
+            <!-- Asset Registration Form -->
             <div id="add-asset" class="tab-content">
-                <h2>➕ Add New Asset - Complete MOE Form (All 58 Fields)</h2>
+                <h2>➕ Add New Asset</h2>
                 <div class="success-message" style="display: none;" id="successMessage">
-                    ✅ <strong>All MOE Fields Implemented!</strong> This form includes every single field required by the Ministry of Education specifications - 58 fields across 14 sections.
+                    ✅ <strong>Asset Registration Form Ready!</strong> Complete the form below to register a new asset in the system.
                 </div>
                 <form id="assetForm">
                     
                     <!-- 1. Asset Identification & Status -->
                     <div class="form-section">
-                        <h3>🏢 1. Asset Identification & Status (6 Fields)</h3>
+                        <h3>🏢 1. Asset Identification & Status</h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -591,7 +591,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 2. Planning & Need Assessment -->
                     <div class="form-section">
-                        <h3>📋 2. Planning & Need Assessment (4 Fields)</h3>
+                        <h3>📋 2. Planning & Need Assessment </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -628,7 +628,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 3. Location Attractiveness -->
                     <div class="form-section">
-                        <h3>📍 3. Location Attractiveness (3 Fields)</h3>
+                        <h3>📍 3. Location Attractiveness </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -655,7 +655,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 4. Investment Proposal & Obstacles -->
                     <div class="form-section">
-                        <h3>💰 4. Investment Proposal & Obstacles (3 Fields)</h3>
+                        <h3>💰 4. Investment Proposal & Obstacles </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -683,7 +683,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 5. Financial Obligations & Covenants -->
                     <div class="form-section">
-                        <h3>💳 5. Financial Obligations & Covenants (3 Fields)</h3>
+                        <h3>💳 5. Financial Obligations & Covenants </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -704,7 +704,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 6. Utilities Information -->
                     <div class="form-section">
-                        <h3>⚡ 6. Utilities Information (4 Fields)</h3>
+                        <h3>⚡ 6. Utilities Information </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -734,7 +734,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 7. Ownership Information -->
                     <div class="form-section">
-                        <h3>📋 7. Ownership Information (4 Fields)</h3>
+                        <h3>📋 7. Ownership Information </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -766,7 +766,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 8. Land & Plan Details -->
                     <div class="form-section">
-                        <h3>🗺️ 8. Land & Plan Details (3 Fields)</h3>
+                        <h3>🗺️ 8. Land & Plan Details </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -796,7 +796,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 9. Asset Area Details -->
                     <div class="form-section">
-                        <h3>📐 9. Asset Area Details (5 Fields)</h3>
+                        <h3>📐 9. Asset Area Details </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -825,7 +825,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 10. Construction Status -->
                     <div class="form-section">
-                        <h3>🏗️ 10. Construction Status (4 Fields)</h3>
+                        <h3>🏗️ 10. Construction Status </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -857,7 +857,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 11. Physical Dimensions -->
                     <div class="form-section">
-                        <h3>📏 11. Physical Dimensions (4 Fields)</h3>
+                        <h3>📏 11. Physical Dimensions </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -882,7 +882,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 12. Boundaries -->
                     <div class="form-section">
-                        <h3>🧭 12. Boundaries (8 Fields)</h3>
+                        <h3>🧭 12. Boundaries </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -923,7 +923,7 @@ HTML_TEMPLATE = '''
 
                     <!-- 13. Geographic Location -->
                     <div class="form-section">
-                        <h3>🌍 13. Geographic Location (7 Fields)</h3>
+                        <h3>🌍 13. Geographic Location </h3>
                         <div class="form-content">
                             <div class="form-row">
                                 <div class="form-group">
@@ -1038,7 +1038,7 @@ HTML_TEMPLATE = '''
                     </div>
 
                     <div style="text-align: center; margin: 2rem 0;">
-                        <button type="submit" class="btn btn-primary" style="font-size: 1.2rem; padding: 1rem 2rem;">💾 Submit Complete Asset Registration (All 58 MOE Fields)</button>
+                        <button type="submit" class="btn btn-primary" style="font-size: 1.2rem; padding: 1rem 2rem;">💾 Submit Asset Registration</button>
                         <button type="reset" class="btn btn-secondary" style="font-size: 1.2rem; padding: 1rem 2rem;">🔄 Reset Form</button>
                     </div>
                 </form>
@@ -1346,7 +1346,7 @@ HTML_TEMPLATE = '''
                     document.getElementById('loginScreen').classList.add('hidden');
                     document.getElementById('mainApp').classList.remove('hidden');
                     loadAllData();
-                    showAlert('Login successful! Welcome to Madares Business - Complete System with All 58 MOE Fields!', 'success');
+                    showAlert('Login successful! Welcome to Madares Business Asset Management System!', 'success');
                 } else {
                     showAlert('Invalid credentials. Please use admin/password123', 'error');
                 }
@@ -1496,7 +1496,7 @@ HTML_TEMPLATE = '''
                 .then(data => {
                     if (data.success) {
                         const asset = data.asset;
-                        document.getElementById('assetModalTitle').textContent = `Complete Asset Details - ${asset.id} (All MOE Fields)`;
+                        document.getElementById`;
                         document.getElementById('assetModalContent').innerHTML = `
                             <div class="form-row">
                                 <div class="form-group">
@@ -1563,7 +1563,7 @@ HTML_TEMPLATE = '''
         }
 
         function editAsset(assetId) {
-            showAlert(`Edit functionality for asset ${assetId} - Complete edit form with all 58 MOE fields would open here`, 'info');
+            showAlert(`Edit functionality for asset ${assetId} - Complete edit form would open here`, 'info');
         }
 
         function deleteAsset(assetId) {
@@ -1664,7 +1664,7 @@ HTML_TEMPLATE = '''
             const formData = new FormData(e.target);
             
             // Show loading
-            showAlert('Submitting complete asset registration with all 58 MOE fields...', 'info');
+            showAlert('Submitting asset registration...', 'info');
             
             fetch('/api/assets', {
                 method: 'POST',
@@ -1673,7 +1673,7 @@ HTML_TEMPLATE = '''
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showAlert('✅ Asset created successfully with ALL 58 MOE fields! Complete MOE compliance achieved.', 'success');
+                    showAlert('✅ Asset created successfully! All information has been saved to the system.', 'success');
                     e.target.reset();
                     loadAssets();
                     updateDashboardStats();
@@ -2063,7 +2063,7 @@ def create_asset():
         
         return jsonify({
             'success': True,
-            'message': f'Asset created successfully with all 58 MOE fields! {len(uploaded_files)} files processed.',
+            'message': f'Asset created successfully! {len(uploaded_files)} files processed.',
             'asset': new_asset,
             'uploaded_files': uploaded_files
         })
@@ -2191,7 +2191,7 @@ def get_dashboard():
             'completed_assets': completed_assets
         },
         'recent_activities': [
-            {'icon': '🏢', 'text': f'Total of {total_assets} assets registered with all 58 MOE fields', 'time': 'Current'},
+            {'icon': '🏢', 'text': f'Total of {total_assets} assets registered in the system', 'time': 'Current'},
             {'icon': '🔄', 'text': f'{active_workflows} workflows currently in progress', 'time': 'Current'},
             {'icon': '👥', 'text': f'{total_users} users active in system', 'time': 'Current'},
             {'icon': '💰', 'text': f'Total investment value: SAR {total_investment:,.0f}', 'time': 'Current'},
