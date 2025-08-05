@@ -1,18 +1,10 @@
-import os
-import sys
-from flask import Flask, request, jsonify, send_from_directory
-from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify, render_template_string
 import json
 from datetime import datetime
 
-# --- App Setup for Vercel Serverless ---
-app = Flask(__name__, static_folder='static')
-app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+app = Flask(__name__)
 
-# For serverless, we don't create upload folders
-# app.config['UPLOAD_FOLDER'] = '/tmp/uploads'  # Use /tmp for serverless
-
-# Simple in-memory storage for demo
+# Simple in-memory data
 assets_data = [
     {
         'id': 'AST-001',
@@ -91,22 +83,391 @@ users_data = [
     }
 ]
 
-# --- Authentication ---
+# HTML template embedded in Python (to avoid file system issues)
+HTML_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Madares Business - Asset Management</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #d4a574, #b8860b); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 1.8rem; font-weight: 600; }
+        .nav-tabs { display: flex; background: white; border-bottom: 2px solid #ddd; padding: 0 2rem; }
+        .nav-tab { padding: 1rem 2rem; cursor: pointer; border: none; background: none; font-size: 1rem; color: #666; border-bottom: 3px solid transparent; transition: all 0.3s; }
+        .nav-tab.active { color: #d4a574; border-bottom-color: #d4a574; background: #fafafa; }
+        .nav-tab:hover { background: #f9f9f9; color: #d4a574; }
+        .content { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .login-container { max-width: 400px; margin: 100px auto; background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: #333; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
+        .btn { padding: 0.75rem 1.5rem; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; transition: all 0.3s; }
+        .btn-primary { background: #d4a574; color: white; }
+        .btn-primary:hover { background: #b8860b; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .stat-card { background: white; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #d4a574; }
+        .stat-label { color: #666; margin-top: 0.5rem; }
+        .table { width: 100%; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #eee; }
+        .table th { background: #f8f9fa; font-weight: 600; color: #333; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.875rem; font-weight: 500; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-warning { background: #fff3cd; color: #856404; }
+        .badge-danger { background: #f8d7da; color: #721c24; }
+        .hidden { display: none; }
+        #map { height: 300px; width: 100%; border-radius: 5px; margin: 1rem 0; }
+        .form-section { background: white; margin: 1rem 0; padding: 1.5rem; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .form-section h3 { color: #d4a574; margin-bottom: 1rem; cursor: pointer; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+    </style>
+</head>
+<body>
+    <div id="loginScreen">
+        <div class="login-container">
+            <h2 style="text-align: center; color: #d4a574; margin-bottom: 2rem;">Madares Business Login</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="username" required>
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="mainApp" class="hidden">
+        <div class="header">
+            <h1>🏢 Madares Business - Asset Management</h1>
+        </div>
+
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('dashboard')">📊 Dashboard</button>
+            <button class="nav-tab" onclick="showTab('assets')">🏢 Assets</button>
+            <button class="nav-tab" onclick="showTab('add-asset')">➕ Add Asset</button>
+            <button class="nav-tab" onclick="showTab('workflows')">🔄 Workflows</button>
+            <button class="nav-tab" onclick="showTab('users')">👥 Users</button>
+            <button class="nav-tab" onclick="showTab('reports')">📊 Reports</button>
+        </div>
+
+        <div class="content">
+            <div id="dashboard" class="tab-content active">
+                <h2>Dashboard</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">Total Assets</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">1</div>
+                        <div class="stat-label">Active Workflows</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">Regions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">3</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="assets" class="tab-content">
+                <h2>Asset Management</h2>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Asset ID</th>
+                            <th>Building Name</th>
+                            <th>Region</th>
+                            <th>Status</th>
+                            <th>Area</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assetsTableBody">
+                        <!-- Assets will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="add-asset" class="tab-content">
+                <h2>Add New Asset - Complete MOE Form</h2>
+                <form id="assetForm">
+                    <div class="form-section">
+                        <h3>🏢 Asset Identification & Status</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Asset ID *</label>
+                                <input type="text" name="asset_id" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Building Name *</label>
+                                <input type="text" name="building_name" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Asset Condition</label>
+                                <select name="condition">
+                                    <option>Excellent</option>
+                                    <option>Good</option>
+                                    <option>Fair</option>
+                                    <option>Poor</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>📍 Geographic Location</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Region *</label>
+                                <select name="region" required>
+                                    <option>Riyadh</option>
+                                    <option>Makkah</option>
+                                    <option>Eastern Province</option>
+                                    <option>Madinah</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>City *</label>
+                                <input type="text" name="city" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Latitude</label>
+                                <input type="text" name="latitude" placeholder="Click on map to select">
+                            </div>
+                            <div class="form-group">
+                                <label>Longitude</label>
+                                <input type="text" name="longitude" placeholder="Click on map to select">
+                            </div>
+                        </div>
+                        <div id="map"></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">💾 Submit Asset</button>
+                </form>
+            </div>
+
+            <div id="workflows" class="tab-content">
+                <h2>Workflow Management</h2>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th>Due Date</th>
+                            <th>Priority</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workflowsTableBody">
+                        <!-- Workflows will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="users" class="tab-content">
+                <h2>User Management</h2>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Department</th>
+                            <th>Region</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <!-- Users will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="reports" class="tab-content">
+                <h2>Reports & Analytics</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>📋 Asset Summary Report</h3>
+                        <p>Complete overview of all assets</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>🗺️ Regional Distribution</h3>
+                        <p>Assets by region and city</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>🏗️ Construction Status</h3>
+                        <p>Building and construction progress</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>💰 Investment Analysis</h3>
+                        <p>Financial and investment insights</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map;
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+
+            // Initialize map if showing add-asset tab
+            if (tabName === 'add-asset' && !map) {
+                initMap();
+            }
+        }
+
+        function initMap() {
+            map = L.map('map').setView([24.7136, 46.6753], 6);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            
+            map.on('click', function(e) {
+                document.querySelector('input[name="latitude"]').value = e.latlng.lat.toFixed(6);
+                document.querySelector('input[name="longitude"]').value = e.latlng.lng.toFixed(6);
+            });
+        }
+
+        function login(e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (username === 'admin' && password === 'password123') {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                loadData();
+            } else {
+                alert('Invalid credentials. Use admin/password123');
+            }
+        }
+
+        function loadData() {
+            // Load assets
+            fetch('/api/assets')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('assetsTableBody');
+                    tbody.innerHTML = data.assets.map(asset => `
+                        <tr>
+                            <td>${asset.id}</td>
+                            <td>${asset.building_name}</td>
+                            <td>${asset.region}</td>
+                            <td><span class="badge badge-success">${asset.status}</span></td>
+                            <td>${asset.area}</td>
+                            <td>
+                                <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">View</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                });
+
+            // Load workflows
+            fetch('/api/workflows')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('workflowsTableBody');
+                    tbody.innerHTML = data.workflows.map(workflow => `
+                        <tr>
+                            <td>${workflow.id}</td>
+                            <td>${workflow.title}</td>
+                            <td><span class="badge badge-warning">${workflow.status}</span></td>
+                            <td>${workflow.assigned_to}</td>
+                            <td>${workflow.due_date}</td>
+                            <td><span class="badge badge-danger">${workflow.priority}</span></td>
+                        </tr>
+                    `).join('');
+                });
+
+            // Load users
+            fetch('/api/users')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('usersTableBody');
+                    tbody.innerHTML = data.users.map(user => `
+                        <tr>
+                            <td>${user.id}</td>
+                            <td>${user.username}</td>
+                            <td>${user.name}</td>
+                            <td>${user.role}</td>
+                            <td>${user.department}</td>
+                            <td>${user.region}</td>
+                            <td><span class="badge badge-success">${user.status}</span></td>
+                        </tr>
+                    `).join('');
+                });
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', login);
+    </script>
+</body>
+</html>
+'''
+
+@app.route('/')
+def index():
+    return render_template_string(HTML_TEMPLATE)
+
+@app.route('/api/assets')
+def get_assets():
+    return jsonify({
+        'success': True,
+        'assets': assets_data
+    })
+
+@app.route('/api/workflows')
+def get_workflows():
+    return jsonify({
+        'success': True,
+        'workflows': workflows_data
+    })
+
+@app.route('/api/users')
+def get_users():
+    return jsonify({
+        'success': True,
+        'users': users_data
+    })
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
     
-    # Simple authentication (in production, use proper password hashing)
     if username == 'admin' and password == 'password123':
         return jsonify({
             'success': True,
-            'message': 'Login successful',
-            'user': {
-                'username': username,
-                'role': 'System Administrator'
-            }
+            'message': 'Login successful'
         })
     else:
         return jsonify({
@@ -114,187 +475,7 @@ def login():
             'message': 'Invalid credentials'
         }), 401
 
-# --- Assets API ---
-@app.route('/api/assets', methods=['GET'])
-def get_assets():
-    return jsonify({
-        'success': True,
-        'assets': assets_data
-    })
-
-@app.route('/api/assets', methods=['POST'])
-def create_asset():
-    data = request.get_json()
-    
-    # Generate new asset ID
-    new_id = f"AST-{len(assets_data) + 1:03d}"
-    
-    new_asset = {
-        'id': new_id,
-        'building_name': data.get('building_name', ''),
-        'region': data.get('region', ''),
-        'city': data.get('city', ''),
-        'condition': data.get('condition', ''),
-        'status': data.get('status', ''),
-        'area': data.get('area', ''),
-        'coordinates': f"{data.get('latitude', '')}, {data.get('longitude', '')}",
-        'created': datetime.now().strftime('%Y-%m-%d')
-    }
-    
-    assets_data.append(new_asset)
-    
-    return jsonify({
-        'success': True,
-        'message': 'Asset created successfully',
-        'asset': new_asset
-    })
-
-@app.route('/api/assets/<asset_id>', methods=['PUT'])
-def update_asset(asset_id):
-    data = request.get_json()
-    
-    # Find and update asset
-    for asset in assets_data:
-        if asset['id'] == asset_id:
-            asset.update({
-                'building_name': data.get('building_name', asset['building_name']),
-                'region': data.get('region', asset['region']),
-                'city': data.get('city', asset['city']),
-                'condition': data.get('condition', asset['condition']),
-                'status': data.get('status', asset['status']),
-                'area': data.get('area', asset['area'])
-            })
-            return jsonify({
-                'success': True,
-                'message': 'Asset updated successfully',
-                'asset': asset
-            })
-    
-    return jsonify({
-        'success': False,
-        'message': 'Asset not found'
-    }), 404
-
-# --- Workflows API ---
-@app.route('/api/workflows', methods=['GET'])
-def get_workflows():
-    return jsonify({
-        'success': True,
-        'workflows': workflows_data
-    })
-
-@app.route('/api/workflows', methods=['POST'])
-def create_workflow():
-    data = request.get_json()
-    
-    new_id = f"WF-{len(workflows_data) + 1:03d}"
-    
-    new_workflow = {
-        'id': new_id,
-        'title': data.get('title', ''),
-        'status': 'Pending',
-        'assigned_to': data.get('assigned_to', ''),
-        'due_date': data.get('due_date', ''),
-        'priority': data.get('priority', 'Medium'),
-        'created': datetime.now().strftime('%Y-%m-%d')
-    }
-    
-    workflows_data.append(new_workflow)
-    
-    return jsonify({
-        'success': True,
-        'message': 'Workflow created successfully',
-        'workflow': new_workflow
-    })
-
-# --- Users API ---
-@app.route('/api/users', methods=['GET'])
-def get_users():
-    return jsonify({
-        'success': True,
-        'users': users_data
-    })
-
-@app.route('/api/users', methods=['POST'])
-def create_user():
-    data = request.get_json()
-    
-    new_id = len(users_data) + 1
-    
-    new_user = {
-        'id': new_id,
-        'username': data.get('username', ''),
-        'name': data.get('name', ''),
-        'role': data.get('role', ''),
-        'department': data.get('department', ''),
-        'region': data.get('region', ''),
-        'status': 'Active'
-    }
-    
-    users_data.append(new_user)
-    
-    return jsonify({
-        'success': True,
-        'message': 'User created successfully',
-        'user': new_user
-    })
-
-# --- File Upload API ---
-@app.route('/api/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({
-            'success': False,
-            'message': 'No file provided'
-        }), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({
-            'success': False,
-            'message': 'No file selected'
-        }), 400
-    
-    # For serverless, we'll just return success without actually storing
-    # In production, you'd upload to cloud storage (S3, etc.)
-    return jsonify({
-        'success': True,
-        'message': f'File {file.filename} uploaded successfully',
-        'filename': file.filename
-    })
-
-# --- Dashboard API ---
-@app.route('/api/dashboard', methods=['GET'])
-def get_dashboard():
-    return jsonify({
-        'success': True,
-        'stats': {
-            'total_assets': len(assets_data),
-            'active_workflows': len([w for w in workflows_data if w['status'] == 'In Progress']),
-            'total_regions': len(set(asset['region'] for asset in assets_data)),
-            'total_users': len(users_data)
-        },
-        'recent_activities': [
-            {'icon': '🏢', 'text': 'Asset AST-001 registered in Riyadh region', 'time': '2 hours ago'},
-            {'icon': '🔄', 'text': 'Workflow WF-003 completed for Dammam property', 'time': '4 hours ago'},
-            {'icon': '👥', 'text': 'New user ahmed.rashid added to system', 'time': '1 day ago'},
-            {'icon': '📊', 'text': 'Investment analysis report generated', 'time': '2 days ago'}
-        ]
-    })
-
-# --- Serve Frontend ---
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, 'index.html')
-
-# Vercel serverless function handler
-def handler(request):
-    return app(request.environ, lambda status, headers: None)
-
-# Export the app for Vercel
-app = app
+# This is the key for Vercel - simple export
+if __name__ == '__main__':
+    app.run(debug=True)
 
