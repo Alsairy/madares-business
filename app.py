@@ -5,13 +5,12 @@ from werkzeug.utils import secure_filename
 import json
 from datetime import datetime
 
-# --- App Setup ---
-app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
+# --- App Setup for Vercel Serverless ---
+app = Flask(__name__, static_folder='static')
 app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
-app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 
-if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'])
+# For serverless, we don't create upload folders
+# app.config['UPLOAD_FOLDER'] = '/tmp/uploads'  # Use /tmp for serverless
 
 # Simple in-memory storage for demo
 assets_data = [
@@ -57,7 +56,8 @@ workflows_data = [
         'status': 'In Progress',
         'assigned_to': 'Ahmed Al-Rashid',
         'due_date': '2025-08-15',
-        'priority': 'High'
+        'priority': 'High',
+        'created': '2025-08-01'
     }
 ]
 
@@ -91,175 +91,189 @@ users_data = [
     }
 ]
 
-# --- API Routes ---
+# --- Authentication ---
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    if data and data.get('username') == 'admin' and data.get('password') == 'password123':
-        return jsonify({'message': 'Login successful', 'user': 'admin'}), 200
-    return jsonify({'message': 'Invalid credentials'}), 401
+    username = data.get('username')
+    password = data.get('password')
+    
+    # Simple authentication (in production, use proper password hashing)
+    if username == 'admin' and password == 'password123':
+        return jsonify({
+            'success': True,
+            'message': 'Login successful',
+            'user': {
+                'username': username,
+                'role': 'System Administrator'
+            }
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'message': 'Invalid credentials'
+        }), 401
 
+# --- Assets API ---
 @app.route('/api/assets', methods=['GET'])
 def get_assets():
-    return jsonify(assets_data)
-
-@app.route('/api/assets/<asset_id>', methods=['GET'])
-def get_asset(asset_id):
-    asset = next((a for a in assets_data if a['id'] == asset_id), None)
-    if asset:
-        return jsonify(asset)
-    return jsonify({'error': 'Asset not found'}), 404
+    return jsonify({
+        'success': True,
+        'assets': assets_data
+    })
 
 @app.route('/api/assets', methods=['POST'])
-def add_asset():
-    try:
-        data = request.form.to_dict() if request.form else request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
-        # Create new asset
-        new_asset = {
-            'id': data.get('asset_id', f'AST-{len(assets_data)+1:03d}'),
-            'building_name': data.get('building_name', ''),
-            'region': data.get('region', ''),
-            'city': data.get('city', ''),
-            'condition': data.get('condition', ''),
-            'status': 'Active',
-            'area': data.get('area', ''),
-            'coordinates': f"{data.get('latitude', '')}, {data.get('longitude', '')}",
-            'created': datetime.now().strftime('%Y-%m-%d')
-        }
-        
-        assets_data.append(new_asset)
-        
-        # Handle file uploads
-        files = request.files
-        uploaded_files = []
-        for field, file in files.items():
-            if file and file.filename:
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-                uploaded_files.append(filename)
-        
-        return jsonify({
-            'message': 'Asset added successfully',
-            'asset': new_asset,
-            'uploaded_files': uploaded_files
-        }), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+def create_asset():
+    data = request.get_json()
+    
+    # Generate new asset ID
+    new_id = f"AST-{len(assets_data) + 1:03d}"
+    
+    new_asset = {
+        'id': new_id,
+        'building_name': data.get('building_name', ''),
+        'region': data.get('region', ''),
+        'city': data.get('city', ''),
+        'condition': data.get('condition', ''),
+        'status': data.get('status', ''),
+        'area': data.get('area', ''),
+        'coordinates': f"{data.get('latitude', '')}, {data.get('longitude', '')}",
+        'created': datetime.now().strftime('%Y-%m-%d')
+    }
+    
+    assets_data.append(new_asset)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Asset created successfully',
+        'asset': new_asset
+    })
 
 @app.route('/api/assets/<asset_id>', methods=['PUT'])
 def update_asset(asset_id):
-    try:
-        data = request.get_json()
-        asset = next((a for a in assets_data if a['id'] == asset_id), None)
-        if not asset:
-            return jsonify({'error': 'Asset not found'}), 404
-        
-        # Update asset data
-        for key, value in data.items():
-            if key in asset:
-                asset[key] = value
-        
-        return jsonify({'message': 'Asset updated successfully', 'asset': asset})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    data = request.get_json()
+    
+    # Find and update asset
+    for asset in assets_data:
+        if asset['id'] == asset_id:
+            asset.update({
+                'building_name': data.get('building_name', asset['building_name']),
+                'region': data.get('region', asset['region']),
+                'city': data.get('city', asset['city']),
+                'condition': data.get('condition', asset['condition']),
+                'status': data.get('status', asset['status']),
+                'area': data.get('area', asset['area'])
+            })
+            return jsonify({
+                'success': True,
+                'message': 'Asset updated successfully',
+                'asset': asset
+            })
+    
+    return jsonify({
+        'success': False,
+        'message': 'Asset not found'
+    }), 404
 
+# --- Workflows API ---
 @app.route('/api/workflows', methods=['GET'])
 def get_workflows():
-    return jsonify(workflows_data)
+    return jsonify({
+        'success': True,
+        'workflows': workflows_data
+    })
 
 @app.route('/api/workflows', methods=['POST'])
-def add_workflow():
-    try:
-        data = request.get_json()
-        new_workflow = {
-            'id': f'WF-{len(workflows_data)+1:03d}',
-            'title': data.get('title', ''),
-            'status': data.get('status', 'New'),
-            'assigned_to': data.get('assigned_to', ''),
-            'due_date': data.get('due_date', ''),
-            'priority': data.get('priority', 'Medium')
-        }
-        workflows_data.append(new_workflow)
-        return jsonify({'message': 'Workflow created successfully', 'workflow': new_workflow}), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+def create_workflow():
+    data = request.get_json()
+    
+    new_id = f"WF-{len(workflows_data) + 1:03d}"
+    
+    new_workflow = {
+        'id': new_id,
+        'title': data.get('title', ''),
+        'status': 'Pending',
+        'assigned_to': data.get('assigned_to', ''),
+        'due_date': data.get('due_date', ''),
+        'priority': data.get('priority', 'Medium'),
+        'created': datetime.now().strftime('%Y-%m-%d')
+    }
+    
+    workflows_data.append(new_workflow)
+    
+    return jsonify({
+        'success': True,
+        'message': 'Workflow created successfully',
+        'workflow': new_workflow
+    })
 
+# --- Users API ---
 @app.route('/api/users', methods=['GET'])
 def get_users():
-    return jsonify(users_data)
+    return jsonify({
+        'success': True,
+        'users': users_data
+    })
 
 @app.route('/api/users', methods=['POST'])
-def add_user():
-    try:
-        data = request.get_json()
-        new_user = {
-            'id': len(users_data) + 1,
-            'username': data.get('username', ''),
-            'name': data.get('name', ''),
-            'role': data.get('role', ''),
-            'department': data.get('department', ''),
-            'region': data.get('region', ''),
-            'status': 'Active'
-        }
-        users_data.append(new_user)
-        return jsonify({'message': 'User added successfully', 'user': new_user}), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+def create_user():
+    data = request.get_json()
+    
+    new_id = len(users_data) + 1
+    
+    new_user = {
+        'id': new_id,
+        'username': data.get('username', ''),
+        'name': data.get('name', ''),
+        'role': data.get('role', ''),
+        'department': data.get('department', ''),
+        'region': data.get('region', ''),
+        'status': 'Active'
+    }
+    
+    users_data.append(new_user)
+    
+    return jsonify({
+        'success': True,
+        'message': 'User created successfully',
+        'user': new_user
+    })
 
-@app.route('/api/users/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
-    try:
-        data = request.get_json()
-        user = next((u for u in users_data if u['id'] == user_id), None)
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        
-        # Update user data
-        for key, value in data.items():
-            if key in user:
-                user[key] = value
-        
-        return jsonify({'message': 'User updated successfully', 'user': user})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
+# --- File Upload API ---
 @app.route('/api/upload', methods=['POST'])
 def upload_file():
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file part'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-        
-        if file:
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            
-            # Simulate OCR processing
-            ocr_text = f"OCR processed text from {filename} - This is simulated OCR output for demonstration."
-            
-            return jsonify({
-                'message': 'File uploaded successfully',
-                'filename': filename,
-                'ocr_text': ocr_text
-            })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/dashboard', methods=['GET'])
-def get_dashboard_data():
+    if 'file' not in request.files:
+        return jsonify({
+            'success': False,
+            'message': 'No file provided'
+        }), 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({
+            'success': False,
+            'message': 'No file selected'
+        }), 400
+    
+    # For serverless, we'll just return success without actually storing
+    # In production, you'd upload to cloud storage (S3, etc.)
     return jsonify({
-        'total_assets': len(assets_data),
-        'active_workflows': len([w for w in workflows_data if w['status'] == 'In Progress']),
-        'regions_covered': len(set(a['region'] for a in assets_data)),
-        'total_users': len(users_data),
+        'success': True,
+        'message': f'File {file.filename} uploaded successfully',
+        'filename': file.filename
+    })
+
+# --- Dashboard API ---
+@app.route('/api/dashboard', methods=['GET'])
+def get_dashboard():
+    return jsonify({
+        'success': True,
+        'stats': {
+            'total_assets': len(assets_data),
+            'active_workflows': len([w for w in workflows_data if w['status'] == 'In Progress']),
+            'total_regions': len(set(asset['region'] for asset in assets_data)),
+            'total_users': len(users_data)
+        },
         'recent_activities': [
             {'icon': '🏢', 'text': 'Asset AST-001 registered in Riyadh region', 'time': '2 hours ago'},
             {'icon': '🔄', 'text': 'Workflow WF-003 completed for Dammam property', 'time': '4 hours ago'},
@@ -277,7 +291,10 @@ def serve(path):
     else:
         return send_from_directory(app.static_folder, 'index.html')
 
-# Vercel will handle the server startup
+# Vercel serverless function handler
+def handler(request):
+    return app(request.environ, lambda status, headers: None)
+
 # Export the app for Vercel
-application = app
+app = app
 
