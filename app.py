@@ -1011,7 +1011,11 @@ HTML_TEMPLATE = '''
                 <input type="password" id="password" required>
             </div>
             <button type="submit" class="btn">Sign In</button>
+            <button type="button" onclick="testLogin()" class="btn" style="background: #27ae60; margin-top: 10px;">Debug Login</button>
         </form>
+        <div style="text-align: center; margin-top: 1rem; color: #666; font-size: 0.9rem;">
+            Use: admin / password123
+        </div>
     </div>
 
     <!-- Main Application -->
@@ -1871,10 +1875,25 @@ HTML_TEMPLATE = '''
         // Login functionality
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const username = document.getElementById('username').value.trim().toLowerCase();
-            const password = document.getElementById('password').value.trim();
+            console.log('Login form submitted');
+            
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            
+            if (!usernameInput || !passwordInput) {
+                console.error('Username or password input not found');
+                alert('Form elements not found. Please refresh the page.');
+                return;
+            }
+            
+            const username = usernameInput.value.trim().toLowerCase();
+            const password = passwordInput.value.trim();
+            
+            console.log('Username:', username);
+            console.log('Password length:', password.length);
             
             if (username === 'admin' && password === 'password123') {
+                console.log('Login successful');
                 document.getElementById('loginContainer').style.display = 'none';
                 document.getElementById('mainApp').style.display = 'block';
                 loadDashboard();
@@ -1883,9 +1902,22 @@ HTML_TEMPLATE = '''
                 loadUsers();
                 initMap();
             } else {
+                console.log('Login failed - Invalid credentials');
                 alert('Invalid credentials. Use admin/password123');
             }
         });
+
+        // Alternative login function for debugging
+        function testLogin() {
+            console.log('Test login called');
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            loadDashboard();
+            loadAssets();
+            loadWorkflows();
+            loadUsers();
+            initMap();
+        }
 
         // Tab functionality
         function showTab(tabName) {
